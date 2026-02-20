@@ -202,7 +202,7 @@ const getSummary = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { full_name, phone, password } = req.body;
+    const { full_name, phone, password } = req.body.body;
 
     if (!full_name) {
       return res.status(400).json({ error: 'El nombre es requerido' });

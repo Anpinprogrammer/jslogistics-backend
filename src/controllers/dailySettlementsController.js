@@ -53,13 +53,13 @@ const getAll = async (req, res) => {
 // POST /api/daily-settlements
 const create = async (req, res) => {
   try {
-    const { courier_id, date, base_money, total_collected, partial_deliveries_sum, expected_balance, notes } = req.body;
+    const { courier_id, date, base_money, total_collected, partial_deliveries_sum, expected_balance, actual_balance, difference, is_settled, settled_by, notes } = req.body;
 
     const result = await pool.query(
-      `INSERT INTO daily_settlements (courier_id, date, base_money, total_collected, partial_deliveries_sum, expected_balance, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO daily_settlements (courier_id, date, base_money, total_collected, partial_deliveries_sum, expected_balance, actual_balance, difference, is_settled, settled_by, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [courier_id, date, base_money || 0, total_collected || 0, partial_deliveries_sum || 0, expected_balance || 0, notes || null]
+      [courier_id, date, base_money || 0, total_collected || 0, partial_deliveries_sum || 0, expected_balance || 0, actual_balance || 0, difference || 0, is_settled, settled_by, notes || null]
     );
 
     res.status(201).json({ data: result.rows[0], error: null });
@@ -68,6 +68,79 @@ const create = async (req, res) => {
     res.status(500).json({ error: 'Error al crear liquidación diaria' });
   }
 };
+
+
+const settleDailySettlement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { actual_balance, notes } = req.body;
+
+    // Validación básica
+    if (actual_balance === undefined || actual_balance === null) {
+      return res.status(400).json({ error: 'Se requiere el balance real para liquidar' });
+    }
+
+    // Obtener liquidación existente
+    const existing = await pool.query(
+      'SELECT * FROM daily_settlements WHERE id = $1',
+      [id]
+    );
+
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Liquidación no encontrada' });
+    }
+
+    const settlement = existing.rows[0];
+    const actualVal = Number(actual_balance);
+    const expectedVal = Number(settlement.expected_balance ?? 0);
+    const difference = actualVal - expectedVal;
+
+    // Actualizar liquidación
+    const result = await pool.query(
+      `
+      UPDATE daily_settlements
+      SET actual_balance = $1,
+          difference = $2,
+          is_settled = true,
+          settled_by = $3,
+          settled_at = now(),
+          notes = COALESCE($4, notes)
+      WHERE id = $5
+      RETURNING *
+      `,
+      [actualVal, difference, req.user.id, notes, id]
+    );
+
+    const updatedSettlement = result.rows[0];
+
+    // Si hay faltante, crear adelanto de salario
+    if (difference < 0) {
+      const { weekStart, weekEnd } = getCurrentWeekDates(settlement.date);
+
+      await pool.query(
+        `
+        INSERT INTO salary_advances
+        (courier_id, created_by, amount, reason, week_start, week_end)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        `,
+        [
+          settlement.courier_id,
+          req.user.id,
+          Math.abs(difference),
+          'Faltante cuadre diario',
+          weekStart,
+          weekEnd
+        ]
+      );
+    }
+
+    res.json({ data: updatedSettlement, error: null });
+  } catch (error) {
+    console.error('Error al liquidar:', error);
+    res.status(500).json({ error: 'Error al liquidar la liquidación' });
+  }
+};
+
 
 // PATCH /api/daily-settlements/:id/settle
 // Closes the daily settlement. If there's a shortfall, auto-creates a salary advance.
@@ -150,6 +223,32 @@ const reopen = async (req, res) => {
   }
 };
 
+// GET /api/daily-settlements/get-base-money
+const getBaseMoney = async (req, res) => {
+  const { date, courierId } = req.query;
+
+  try {
+    let query = `
+      SELECT *
+      FROM daily_base_money
+      WHERE date = $1
+    `;
+    const params = [date];
+
+    if (courierId) {
+      query += ` AND courier_id = $2`;
+      params.push(courierId);
+    }
+
+    const result = await pool.query(query, params);
+
+    res.status(200).json({ data: result.rows });
+  } catch (error) {
+    console.error('Error obteniendo base money:', error);
+    res.status(500).json({ error: 'Error obteniendo base money' });
+  }
+};
+
 // POST /api/daily-settlements/base-money
 const assignBaseMoney = async (req, res) => {
   try {
@@ -188,4 +287,43 @@ const createPartialDelivery = async (req, res) => {
   }
 };
 
-module.exports = { getAll, create, settle, reopen, assignBaseMoney, createPartialDelivery };
+// GET /api/daily-settlements/get-partial-deliveries
+const getPartialDeliveries = async (req, res) => {
+  const { date, courierId } = req.query;
+
+    try {
+      let query = `
+        SELECT *
+        FROM partial_deliveries 
+        WHERE date = $1
+      `;
+      const params = [date];
+
+      if (courierId) {
+        query += ` AND courier_id = $2`;
+        params.push(courierId);
+      }
+
+      const result = await pool.query(query, params);
+
+      res.status(200).json({ data: result.rows });
+    } catch (error) {
+      console.error('Error obteniendo base money:', error);
+      res.status(500).json({ error: 'Error obteniendo entregas parciales' });
+    }
+}
+
+const deleteDaily = async (req, res) => {
+  try {
+    await pool.query('DELETE FROM daily_settlements')
+    await pool.query('DELETE FROM daily_base_money')
+    await pool.query('DELETE FROM partial_deliveries')
+
+    res.json({ msg: 'Eliminado correctamente' })
+
+  } catch (error) { 
+    console.log(error)
+  }
+}
+
+module.exports = { getAll, create, settle, reopen, getBaseMoney, assignBaseMoney, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily };

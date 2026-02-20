@@ -1,6 +1,6 @@
 const cors = require('cors');
 
-const origins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+const origins = (process.env.CORS_ORIGINS || 'http://localhost:8080')
   .split(',')
   .map(o => o.trim());
 

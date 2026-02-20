@@ -278,7 +278,7 @@ const update = async (req, res) => {
         service_value = COALESCE($4, service_value),
         total_to_collect = COALESCE($5, total_to_collect),
         payment_method = COALESCE($6, payment_method),
-        recipient_name = $7,
+        recipient_name = COALESCE($7, recipient_name),
         notes = $8,
         status = COALESCE($9, status),
         received_amount = $10,
@@ -371,10 +371,9 @@ const remove = async (req, res) => {
     }
 
     await pool.query(
-      `INSERT INTO delivery_audit_log (delivery_id, action, changed_by, old_values, reason)
-       VALUES ($1, 'deleted', $2, $3, $4)`,
-      [id, req.user.id, JSON.stringify(oldResult.rows[0]), reason || null]
-    );
+      `DELETE FROM delivery_audit_log WHERE delivery_id = $1`,
+      [id]
+    )
 
     await pool.query('DELETE FROM deliveries WHERE id = $1', [id]);
 
@@ -384,6 +383,19 @@ const remove = async (req, res) => {
     res.status(500).json({ error: 'Error al eliminar entrega' });
   }
 };
+
+// DELETE /api/deliveries
+const deleteAll = async (req, res) => {
+  try {
+    await pool.query(
+      `DELETE FROM delivery_audit_log`
+    )
+    await pool.query('DELETE FROM deliveries')
+    res.json({ msg: 'Todos los deliveries fueron eliminados' })
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // PATCH /api/deliveries/:id/reassign
 const reassign = async (req, res) => {
@@ -479,4 +491,5 @@ const getAuditLog = async (req, res) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, updateStatus, remove, reassign, getAuditLog };
+
+module.exports = { getAll, getById, create, update, updateStatus, remove, deleteAll, reassign, getAuditLog };

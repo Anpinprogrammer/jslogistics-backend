@@ -29,7 +29,7 @@ const getById = async (req, res) => {
 const getWithDebt = async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT * FROM clients WHERE balance > 0 ORDER BY balance DESC'
+      'SELECT * FROM clients WHERE balance < 0 ORDER BY balance DESC'
     );
     res.json({ data: result.rows, error: null });
   } catch (error) {
@@ -65,23 +65,45 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, phone, address, notes, balance, company, identification_number, email } = req.body;
 
-    const result = await pool.query(
-      `UPDATE clients 
-       SET name = COALESCE($1, name), 
-           phone = $2, 
-           address = $3, 
-           notes = $4, 
-           balance = COALESCE($5, balance),
-           company = $6,
-           identification_number = $7,
-           email = $8,
-           updated_at = now()
-       WHERE id = $9
-       RETURNING *`,
-      [name, phone || null, address || null, notes || null, balance, company || null, identification_number || null, email || null, id]
-    );
+    const allowedFields = [
+      'name',
+      'phone',
+      'address',
+      'notes',
+      'balance',
+      'company',
+      'identification_number',
+      'email',
+    ];
+
+    const fields = [];
+    const values = [];
+    let index = 1;
+
+    for (const field of allowedFields) {
+      if (req.body.hasOwnProperty(field)) {
+        fields.push(`${field} = $${index}`);
+        values.push(req.body[field]); // puede ser valor o null
+        index++;
+      }
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    const query = `
+      UPDATE clients
+      SET ${fields.join(', ')},
+          updated_at = now()
+      WHERE id = $${index}
+      RETURNING *
+    `;
+
+    values.push(id);
+
+    const result = await pool.query(query, values);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Cliente no encontrado' });
@@ -93,6 +115,26 @@ const update = async (req, res) => {
     res.status(500).json({ error: 'Error al actualizar cliente' });
   }
 };
+
+// PUT /api/clients
+const updateAll = async (req, res) => {
+  const { balance } = req.body
+  try {
+    const result = await pool.query(
+      `UPDATE clients 
+       SET balance = $1,
+       updated_at = now()
+      `,
+      [ balance ]
+    );
+
+    
+
+    res.json({ data: result, error: null });
+  } catch (error) {
+    console.log(error)
+  }
+}
 
 // DELETE /api/clients/:id
 const remove = async (req, res) => {
@@ -208,4 +250,4 @@ async function queryWithOrder(table, orderBy) {
   return { data: result.rows };
 }
 
-module.exports = { getAll, getById, getWithDebt, create, update, remove, getStatement };
+module.exports = { getAll, getById, getWithDebt, create, update, updateAll, remove, getStatement };
