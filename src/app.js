@@ -19,6 +19,8 @@ app.use('/api/daily-settlements', require('./routes/dailySettlements'));
 app.use('/api/weekly-settlements', require('./routes/weeklySettlements'));
 app.use('/api/operational-charges', require('./routes/operationalCharges'));
 app.use('/api/salary-advances', require('./routes/salaryAdvances'));
+app.use('/api/admins', require('./routes/admins'));
+app.use('/api/pickers', require('./routes/pickers'));
 
 // Ruta de health check
 app.get('/api/health', (req, res) => {
