@@ -207,9 +207,9 @@ const getById = async (req, res) => {
 const create = async (req, res) => {
   try {
     const {
-      client_id, courier_id, amount, service_value, total_to_collect,
+      client_id, courier_id, amount, service_value, total_to_collect, 
       payment_method, recipient_name, notes, week_start, week_end,
-      delivery_date, received_amount, receipt_photo_url
+      delivery_date, received_amount, receipt_photo_url, loan
     } = req.body;
 
     if (!client_id || !courier_id || amount === undefined || !payment_method || !week_start || !week_end) {
@@ -223,15 +223,15 @@ const create = async (req, res) => {
       `INSERT INTO deliveries 
         (client_id, courier_id, created_by, amount, service_value, total_to_collect, 
          payment_method, recipient_name, notes, week_start, week_end, delivery_date,
-         received_amount, receipt_photo_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+         received_amount, receipt_photo_url, loan)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [
         client_id, effectiveCourierId, req.user.id, amount,
         service_value || 0, total_to_collect || 0,
         payment_method, recipient_name || null, notes || null,
         week_start, week_end, effectiveDate,
-        received_amount || null, receipt_photo_url || null
+        received_amount || null, receipt_photo_url || null, loan || 0
       ]
     );
 
@@ -267,8 +267,10 @@ const update = async (req, res) => {
     const {
       client_id, courier_id, amount, service_value, total_to_collect,
       payment_method, recipient_name, notes, status, received_amount,
-      receipt_photo_url, reason
+      receipt_photo_url, reason, lost_trips
     } = req.body;
+
+    console.log(req.body)
 
     const result = await pool.query(
       `UPDATE deliveries SET
@@ -283,13 +285,14 @@ const update = async (req, res) => {
         status = COALESCE($9, status),
         received_amount = $10,
         receipt_photo_url = $11,
+        lost_trips = COALESCE($12, lost_trips),
         updated_at = now()
-       WHERE id = $12
+       WHERE id = $13
        RETURNING *`,
       [
         client_id, courier_id, amount, service_value, total_to_collect,
         payment_method, recipient_name, notes, status, received_amount,
-        receipt_photo_url, id
+        receipt_photo_url, lost_trips, id
       ]
     );
 

@@ -75,6 +75,7 @@ const update = async (req, res) => {
       'company',
       'identification_number',
       'email',
+      'service_lost_trips',
     ];
 
     const fields = [];
@@ -118,14 +119,16 @@ const update = async (req, res) => {
 
 // PUT /api/clients
 const updateAll = async (req, res) => {
-  const { balance } = req.body
+  const { balance, service_lost_trips } = req.body
   try {
     const result = await pool.query(
       `UPDATE clients 
-       SET balance = $1,
+       SET 
+        balance = $1,
+        service_lost_trips = $2,
        updated_at = now()
       `,
-      [ balance ]
+      [ balance, service_lost_trips ]
     );
 
     
