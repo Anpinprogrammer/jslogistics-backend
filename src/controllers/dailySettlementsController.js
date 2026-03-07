@@ -326,4 +326,165 @@ const deleteDaily = async (req, res) => {
   }
 }
 
-module.exports = { getAll, create, settle, reopen, getBaseMoney, assignBaseMoney, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily };
+// GET /api/daily-settlements/company
+const getAllCompany = async (req, res) => {
+  try {
+    const result = await pool.query(`
+    WITH accounts AS (
+    SELECT unnest(ARRAY['cash','bancolombia','nequi'])::company_account AS account
+    )
+    SELECT
+      a.account,
+      COALESCE(SUM(CASE WHEN type = 'opening_balance' THEN amount END), 0) AS opening_balance,
+      COALESCE(SUM(CASE WHEN type = 'income' THEN amount END), 0) AS total_income,
+      COALESCE(SUM(CASE WHEN type = 'expense' THEN amount END), 0) AS total_expense,
+      COALESCE(SUM(
+        CASE 
+          WHEN type = 'opening_balance' THEN amount
+          WHEN type = 'income' THEN amount
+          WHEN type = 'expense' THEN -amount
+        END
+      ), 0) AS balance
+    FROM accounts a
+    LEFT JOIN company_money_movements m
+      ON m.account = a.account
+    GROUP BY a.account
+    ORDER BY a.account;
+  `);
+    res.json({ data: result.rows })
+  } catch (error) {
+    console.log(error)
+  }
+}
+
+//POST /api/daily-settlements/company/base-money
+const createCompanyAssignment = async (req, res) => {
+  const userId = req.user.id;
+  const { account, type, amount, notes, date } = req.body;
+
+  const result = await pool.query(`
+    INSERT INTO company_money_movements
+      (account, type, amount, created_by, date, notes)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `, [account, type, amount, userId, date || new Date(), notes || null]);
+
+  res.json(result.rows[0]);
+};
+
+//POST /api/daily-settlements/company/reset
+const resetCompanyAccounts = async (req, res) => {
+  try {
+    const userId = req.user?.id; // asegúrate de tener middleware de auth
+    if (!userId) {
+      return res.status(401).json({ error: 'No user logged in' });
+    }
+
+    // 1️⃣ Eliminar todos los registros existentes
+    await pool.query(`TRUNCATE TABLE company_money_movements RESTART IDENTITY CASCADE`);
+
+    // 2️⃣ Insertar nuevo opening_balance = 0 para todas las cuentas
+    await pool.query(`
+      INSERT INTO company_money_movements (account, type, amount, created_by, date, notes)
+      SELECT account, 'opening_balance', 0, $1, CURRENT_DATE, 'Reset inicial'
+      FROM (
+        SELECT unnest(ARRAY['cash','bancolombia','nequi'])::company_account AS account
+      ) AS t
+    `, [userId]);
+
+    res.json({ message: '✅ Todas las cuentas fueron reseteadas a 0' });
+  } catch (error) {
+    console.error('Error reseteando cuentas:', error);
+    res.status(500).json({ error: 'Error reseteando cuentas' });
+  }
+};
+
+// GET /api/daily-settlements/company/transactions/:account
+const getTransactions = async (req, res) => {
+  const { account } = req.params;
+  const { date } = req.body;
+
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(400).json({ error: 'No user logged in' })
+
+    if(!account) {
+      return res.status(400).json({ error: 'Cuenta es requerida' })
+    }  
+
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    const { rows } =  await pool.query(
+      `SELECT * FROM company_money_movements
+      WHERE account = $1 AND date = $2`,
+      [account, targetDate]
+    )
+
+    res.json({ data: rows })
+    
+
+  } catch (error) {
+    console.error('Error finding transactions:', error);
+    res.status(500).json({ error: 'Error encontrando las transacciones' })
+  }
+
+
+}
+
+// PUT /api/daily-settlements/company/movements/opening-balance
+const editOpeningBalance = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(400).json({ error: 'No user logged in' })
+    
+    const { account, newAmount, date } = req.body;
+    if(!account || newAmount == null) {
+      return res.status(400).json({ error: 'Cuenta y monto son requeridos' })
+    }
+
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    // 1️⃣ Verificar si existe un opening_balance para esa cuenta y fecha
+    const { rows } = await pool.query(
+      `SELECT id FROM company_money_movements
+       WHERE account = $1 AND type = 'opening_balance' AND date = $2`,
+      [account, targetDate]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No se encontro plante inicial para esta cuenta' });
+    }
+
+    if (Number(newAmount) === 0) {
+      await pool.query(
+        `DELETE FROM company_money_movements
+         WHERE account = $1
+         AND type = 'opening_balance'
+         AND date = $2`,
+        [account, targetDate]
+      );
+
+      return res.json({ message: 'Opening balance eliminado' });
+    }
+
+    const idToUpdate = rows[0].id;
+
+    // 2️⃣ Actualizar el amount
+    const result = await pool.query(
+      `UPDATE company_money_movements
+       SET amount = $1, created_by = $2, notes = 'Edited opening_balance', created_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [newAmount, userId, idToUpdate]
+    );
+
+    res.json({ message: '✅ Plante Inicial editado correctamente', updated: result.rows[0] });
+
+
+  } catch (error) {
+    console.error('Error editing opening_balance:', error);
+    res.status(500).json({ error: 'Error editando el plante inicial' })
+  }
+}
+
+module.exports = { getAll, create, settle, reopen, getBaseMoney, assignBaseMoney, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily, getAllCompany, createCompanyAssignment, resetCompanyAccounts, getTransactions, editOpeningBalance };
