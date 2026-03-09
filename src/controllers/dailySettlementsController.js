@@ -359,17 +359,63 @@ const getAllCompany = async (req, res) => {
 
 //POST /api/daily-settlements/company/base-money
 const createCompanyAssignment = async (req, res) => {
-  const userId = req.user.id;
-  const { account, type, amount, notes, date } = req.body;
+  try {
+    const userId = req.user.id;
+    const { account, type, amount, notes, date } = req.body;
 
-  const result = await pool.query(`
-    INSERT INTO company_money_movements
-      (account, type, amount, created_by, date, notes)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    RETURNING *
-  `, [account, type, amount, userId, date || new Date(), notes || null]);
+    if (!userId) {
+      return res.status(401).json({ error: "No user logged in" });
+    }
 
-  res.json(result.rows[0]);
+    let result;
+
+    if (type === "opening_balance") {
+
+      result = await pool.query(
+        `
+        UPDATE company_money_movements
+        SET amount = $1,
+            notes = $2,
+            created_by = $3
+        WHERE account = $4
+        AND type = 'opening_balance'
+        AND date = CURRENT_DATE
+        RETURNING *
+        `,
+        [amount, notes || null, userId, account]
+      );
+
+      if (result.rowCount === 0) {
+        result = await pool.query(
+          `
+          INSERT INTO company_money_movements
+          (account, type, amount, created_by, date, notes)
+          VALUES ($1, 'opening_balance', $2, $3, CURRENT_DATE, $4)
+          RETURNING *
+          `,
+          [account, amount, userId, notes || null]
+        );
+      }
+
+    } else {
+
+      result = await pool.query(
+        `
+        INSERT INTO company_money_movements
+        (account, type, amount, created_by, date, notes)
+        VALUES ($1, $2, $3, $4, CURRENT_DATE, $5)
+        RETURNING *
+        `,
+        [account, type, amount, userId, notes || null]
+      );
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    console.error("Error creando movimiento:", error);
+    res.status(500).json({ error: "Error creando movimiento" });
+  }
 };
 
 //POST /api/daily-settlements/company/reset
@@ -402,7 +448,6 @@ const resetCompanyAccounts = async (req, res) => {
 // GET /api/daily-settlements/company/transactions/:account
 const getTransactions = async (req, res) => {
   const { account } = req.params;
-  const { date } = req.body;
 
   try {
     const userId = req.user?.id;
@@ -412,12 +457,14 @@ const getTransactions = async (req, res) => {
       return res.status(400).json({ error: 'Cuenta es requerida' })
     }  
 
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = new Date().toISOString().split('T')[0];
 
     const { rows } =  await pool.query(
       `SELECT * FROM company_money_movements
-      WHERE account = $1 AND date = $2`,
-      [account, targetDate]
+      WHERE account = $1 
+      AND date = CURRENT_DATE 
+      ORDER BY created_at`,
+      [account]
     )
 
     res.json({ data: rows })
@@ -447,8 +494,8 @@ const editOpeningBalance = async (req, res) => {
     // 1️⃣ Verificar si existe un opening_balance para esa cuenta y fecha
     const { rows } = await pool.query(
       `SELECT id FROM company_money_movements
-       WHERE account = $1 AND type = 'opening_balance' AND date = $2`,
-      [account, targetDate]
+       WHERE account = $1 AND type = 'opening_balance' AND date = CURRENT_DATE`,
+      [account]
     );
 
     if (rows.length === 0) {
