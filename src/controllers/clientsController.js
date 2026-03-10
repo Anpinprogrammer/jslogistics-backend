@@ -1,7 +1,18 @@
 const { pool } = require('../config/database');
+//const { pool } = require('../config/supabase')
+const { supabase } = require('../utils/supabaseClient');
 
 // GET /api/clients
 const getAll = async (req, res) => {
+  /**
+   * 
+  const { data, error } = await supabase
+    .from('clients')
+    .select('*')
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({data})
+   */
+   
   try {
     const { data } = await queryWithOrder('clients', 'name');
     res.json({ data, error: null });
@@ -9,6 +20,7 @@ const getAll = async (req, res) => {
     console.error('Error obteniendo clientes:', error);
     res.status(500).json({ error: 'Error al obtener clientes' });
   }
+   
 };
 
 // GET /api/clients/:id
