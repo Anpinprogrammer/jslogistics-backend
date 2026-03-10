@@ -1,12 +1,18 @@
 const express = require('express');
 const corsMiddleware = require('./middleware/cors');
+const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware global
-app.use(corsMiddleware);
+// Permitir sólo tu frontend
+app.use(cors({
+  origin: process.env.CORS_ORIGINS,
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'], // muy importante para JWT
+  credentials: true, // si manejas cookies o sesiones
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
