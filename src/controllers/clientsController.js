@@ -1,17 +1,8 @@
 const { pool } = require('../config/database');
 //const { pool } = require('../config/supabase')
-const { supabase } = require('../utils/supabaseClient');
 
 // GET /api/clients
 const getAll = async (req, res) => {
-  /**
-   * 
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-  if (error) return res.status(500).json({ error: error.message })
-  res.json({data})
-   */
    
   try {
     const { data } = await queryWithOrder('clients', 'name');
