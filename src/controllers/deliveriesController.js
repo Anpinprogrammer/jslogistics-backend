@@ -268,7 +268,7 @@ const update = async (req, res) => {
     const {
       client_id, courier_id, amount, service_value, total_to_collect,
       payment_method, recipient_name, notes, status, received_amount,
-      receipt_photo_url, reason, lost_trips
+      receipt_photo_url, reason, lost_trips, loan
     } = req.body;
 
     const result = await pool.query(
@@ -285,13 +285,14 @@ const update = async (req, res) => {
         received_amount = $10,
         receipt_photo_url = $11,
         lost_trips = COALESCE($12, lost_trips),
+        loan = COALESCE($13, loan),
         updated_at = now()
-       WHERE id = $13
+       WHERE id = $14
        RETURNING *`,
       [
         client_id, courier_id, amount, service_value, total_to_collect,
         payment_method, recipient_name, notes, status, received_amount,
-        receipt_photo_url, lost_trips, id
+        receipt_photo_url, lost_trips, loan ?? null, id
       ]
     );
 

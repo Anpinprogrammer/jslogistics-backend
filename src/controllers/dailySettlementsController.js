@@ -357,7 +357,7 @@ const getAllCompany = async (req, res) => {
   }
 }
 
-//POST /api/daily-settlements/company/base-money
+//POST /api/daily-settlements/company/money-assignment
 const createCompanyAssignment = async (req, res) => {
   try {
     const userId = req.user.id;
