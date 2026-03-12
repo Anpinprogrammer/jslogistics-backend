@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { supabase } = require('../config/supabase');
 
 // Helper: reopen daily settlement if closed
 async function reopenDailySettlement(courierId, date) {
@@ -209,7 +210,7 @@ const create = async (req, res) => {
     const {
       client_id, courier_id, amount, service_value, total_to_collect, 
       payment_method, recipient_name, notes, week_start, week_end,
-      delivery_date, received_amount, receipt_photo_url, loan
+      delivery_date, received_amount, receipt_photo_url, loan, advanced_payment
     } = req.body;
 
     if (!client_id || !courier_id || amount === undefined || !payment_method || !week_start || !week_end) {
@@ -223,15 +224,15 @@ const create = async (req, res) => {
       `INSERT INTO deliveries 
         (client_id, courier_id, created_by, amount, service_value, total_to_collect, 
          payment_method, recipient_name, notes, week_start, week_end, delivery_date,
-         received_amount, receipt_photo_url, loan)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+         received_amount, receipt_photo_url, loan, advanced_payment)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING *`,
       [
         client_id, effectiveCourierId, req.user.id, amount,
         service_value || 0, total_to_collect || 0,
         payment_method, recipient_name || null, notes || null,
         week_start, week_end, effectiveDate,
-        received_amount || null, receipt_photo_url || null, loan || 0
+        received_amount || null, receipt_photo_url || null, loan || 0, advanced_payment || false
       ]
     );
 
@@ -269,8 +270,6 @@ const update = async (req, res) => {
       payment_method, recipient_name, notes, status, received_amount,
       receipt_photo_url, reason, lost_trips
     } = req.body;
-
-    console.log(req.body)
 
     const result = await pool.query(
       `UPDATE deliveries SET
@@ -390,6 +389,32 @@ const remove = async (req, res) => {
 // DELETE /api/deliveries
 const deleteAll = async (req, res) => {
   try {
+    const { data: files, error: listError } = await supabase
+      .storage
+      .from('delivery-proofs')
+      .list('deliveries', {
+        limit: 1000,
+        offset: 0
+      });
+
+
+    if (listError) console.error(listError);
+
+    // obtener rutas
+    const filePaths = files.map(file => `deliveries/${file.name}`);
+
+    if(filePaths.length > 0){
+      // eliminar
+      const { error: deleteError } = await supabase
+        .storage
+        .from('delivery-proofs')
+        .remove(filePaths);
+
+      if (deleteError) console.error(deleteError);
+    }
+
+    
+    
     await pool.query(
       `DELETE FROM delivery_audit_log`
     )
