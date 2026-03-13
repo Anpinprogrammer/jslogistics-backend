@@ -1,18 +1,30 @@
 const { pool } = require('../config/database');
+const paginatedResponse = require('../utils/paginatedResponse')
 //const { pool } = require('../config/supabase')
 
-// GET /api/clients
+//GET /api/clients (test with pagination)
 const getAll = async (req, res) => {
-   
+  const { limit, offset, page } = req.pagination;
+  
   try {
-    const { data } = await queryWithOrder('clients', 'name');
-    res.json({ data, error: null });
-  } catch (error) {
-    console.error('Error obteniendo clientes:', error);
-    res.status(500).json({ error: 'Error al obtener clientes' });
+    //Postgres
+    const { rows: [ { count }]} = await pool.query(
+      `SELECT COUNT(*) FROM clients`
+    )
+
+    const clients = await pool.query(
+      `SELECT * FROM clients
+       ORDER BY name ASC 
+       LIMIT $1 
+       OFFSET $2
+      `,
+      [limit, offset]
+    )
+    res.json(paginatedResponse(clients.rows, parseInt(count), { page, limit }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-   
-};
+}
 
 // GET /api/clients/:id
 const getById = async (req, res) => {
