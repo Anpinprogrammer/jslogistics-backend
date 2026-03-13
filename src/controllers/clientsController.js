@@ -53,6 +53,114 @@ const getWithDebt = async (req, res) => {
   }
 };
 
+//GET /api/clients/daily-summary?date=2026-03-13&page=1&limit=10
+const getDailySummary = async (req, res) => {
+  const { page, limit, offset } = req.pagination;
+  const { date } = req.query;
+  const targetDate = date || new Date().toISOString().split('T')[0];
+
+  try {
+    // Query principal con todos los cálculos en SQL
+    const result = await pool.query(`
+      SELECT 
+        c.id,
+        c.name,
+        c.phone,
+        c.balance,
+        c.company,
+
+        -- Total recaudado de destinatarios
+        COALESCE(SUM(
+          CASE WHEN d.payment_method IN ('cash', 'transfer_to_courier')
+          THEN d.received_amount ELSE 0 END
+        ), 0) AS total_collected,
+
+        -- Tarifa de servicio (solo entregas completadas)
+        COALESCE(SUM(
+          CASE WHEN d.status = 'completed'
+          THEN d.service_value ELSE 0 END
+        ), 0) AS total_services,
+
+        -- Préstamos (completadas o no entregadas)
+        COALESCE(SUM(
+          CASE WHEN d.status IN ('completed', 'not_delivered_collected')
+          THEN d.loan ELSE 0 END
+        ), 0) AS total_loans,
+
+        -- Cantidad de entregas hoy
+        COUNT(d.id) AS delivery_count,
+
+        -- Array de entregas del día
+        COALESCE(
+          JSON_AGG(
+            JSON_BUILD_OBJECT(
+              'id', d.id,
+              'status', d.status,
+              'recipient_name', d.recipient_name,
+              'payment_method', d.payment_method,
+              'received_amount', d.received_amount,
+              'service_value', d.service_value,
+              'loan', d.loan,
+              'total_to_collect', d.total_to_collect,
+              'created_at', d.created_at
+            ) ORDER BY d.created_at ASC
+          ) FILTER (WHERE d.id IS NOT NULL),
+          '[]'
+        ) AS deliveries,
+
+        -- Total para paginación
+        COUNT(*) OVER() AS total_count
+
+      FROM clients c
+      LEFT JOIN deliveries d
+        ON d.client_id = c.id
+        AND DATE(d.created_at) = $1
+
+      -- Solo clientes con actividad hoy O con balance pendiente
+      WHERE c.balance != 0 OR d.id IS NOT NULL
+
+      GROUP BY c.id
+      ORDER BY c.name ASC
+      LIMIT $2 OFFSET $3
+    `, [targetDate, limit, offset]);
+
+    const rows = result.rows;
+    const total = parseInt(rows[0]?.total_count ?? 0);
+
+    const data = rows.map(row => {
+      return ({
+      client: {
+        id: row.id,
+        name: row.name,
+        phone: row.phone,
+        balance: row.balance,
+        company: row.company,
+      },
+      totalCollected: Number(row.total_collected),
+      totalServices:  Number(row.total_services),
+      totalLoans:     Number(row.total_loans),
+      dailyNet:       Number(row.total_collected) - Number(row.total_services),
+      currentBalance: Number(row.balance),
+      hasActivityToday: Number(row.delivery_count) > 0,
+      deliveries:     row.deliveries,
+    })});
+
+    res.json({
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // POST /api/clients
 const create = async (req, res) => {
   try {
@@ -268,4 +376,4 @@ async function queryWithOrder(table, orderBy) {
   return { data: result.rows };
 }
 
-module.exports = { getAll, getById, getWithDebt, create, update, updateAll, remove, getStatement };
+module.exports = { getAll, getById, getWithDebt, getDailySummary, create, update, updateAll, remove, getStatement };
