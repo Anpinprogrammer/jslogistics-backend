@@ -7,14 +7,21 @@ const client = new Anthropic({
     apiKey: process.env.ANTHROPIC_API_KEY
 })
 
+
+
+
+
 async function runAgent(message, history, userId) {
-     const systemPrompt = getSystemPrompt();
+  const systemPrompt = getSystemPrompt();
 
   const messages = [
     ...history,
     { role: 'user', content: message }
   ];
 
+
+
+  
   let response = await client.messages.create({
     model: 'claude-opus-4-6',
     max_tokens: 1024,
@@ -22,6 +29,7 @@ async function runAgent(message, history, userId) {
     tools,
     messages
   });
+  
 
   while (response.stop_reason === 'tool_use') {
 
@@ -55,7 +63,7 @@ async function runAgent(message, history, userId) {
       role: 'user',
       content: toolResults
     });
-
+     
     response = await client.messages.create({
       model: 'claude-opus-4-6',
       max_tokens: 1024,
@@ -63,6 +71,7 @@ async function runAgent(message, history, userId) {
       tools,
       messages
     });
+    
   }
 
   const textBlock = response.content.find((b) => b.type === 'text');

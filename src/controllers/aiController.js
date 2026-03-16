@@ -1,4 +1,5 @@
 const { runAgent } = require('../ai/agent');
+const { runAgentOR } = require('../ai/agentOR');
 
 const chat = async (req, res) => {
 
@@ -7,7 +8,12 @@ const chat = async (req, res) => {
     const { message, history = [] } = req.body;
     const userId = req.user.id;
 
-    const result = await runAgent(message, history, userId);
+    let result;
+    if(process.env.NODE_ENV === 'production') {
+      result = await runAgent(message, history, userId);
+    } else if (process.env.NODE_ENV === 'developing'){
+      result = await runAgentOR(message, history, userId);
+    }
 
     const updatedHistory = result.messages.slice(history.length);
 
