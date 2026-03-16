@@ -27,6 +27,7 @@ app.use('/api/operational-charges', require('./routes/operationalCharges'));
 app.use('/api/salary-advances', require('./routes/salaryAdvances'));
 app.use('/api/admins', require('./routes/admins'));
 app.use('/api/pickers', require('./routes/pickers'));
+app.use('/api/agent', require('./routes/agent'));
 
 // Ruta de health check
 app.get('/api/health', (req, res) => {
