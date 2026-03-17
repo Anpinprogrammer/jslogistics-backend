@@ -12,6 +12,8 @@ async function executeTool(toolName, input, userId) {
         courier_id,
         amount = 0,
         service_value = 0,
+        loan = 0,
+        subAccount = 'cash',
         total_to_collect = 0,
         payment_method = 'cash',
         delivery_date = today,
@@ -19,17 +21,29 @@ async function executeTool(toolName, input, userId) {
         is_pickup = false,
       } = input;
 
+      if(loan > 0) {
+        const updateLoan = await pool.query(
+          `
+        INSERT INTO company_money_movements
+        (account, type, amount, created_by, date, notes)
+        VALUES ($1, 'expense', $2, $3, CURRENT_DATE, 'Prestamo registrado por el asistente de IA')
+        RETURNING *
+        `,
+        [subAccount, loan, userId]
+        )
+      }
+
       const result = await pool.query(
         `INSERT INTO deliveries
            (client_id, courier_id, amount, service_value, total_to_collect,
             payment_method, delivery_date, notes, status, created_by,
-            week_start, week_end)
+            week_start, week_end, loan)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pending',$9,
            date_trunc('week', $7::date),
-           date_trunc('week', $7::date) + interval '6 days')
+           date_trunc('week', $7::date) + interval '6 days', $10)
          RETURNING id, status, delivery_date`,
         [client_id, courier_id, amount, service_value, total_to_collect,
-         payment_method, delivery_date, notes, userId]
+         payment_method, delivery_date, notes, userId, loan || 0]
       );
 
       const delivery = result.rows[0];

@@ -34,6 +34,15 @@ export const tools = [
           type: 'number',
           description: 'Delivery service fee charged by the company'
         },
+        loan: {
+          type: 'number',
+          description: 'JSLogistics lends money to the client'
+        },
+        subAccount: {
+          type: 'string',
+          enum: ['cash or efectivo', 'bancolombia', 'nequi'],
+          description: 'account where the loan was taken from'
+        }, 
         total_to_collect: {
           type: 'number',
           description: 'Total money the courier must collect from the recipient (goods + service)'
