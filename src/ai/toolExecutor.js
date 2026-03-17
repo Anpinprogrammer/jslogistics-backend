@@ -35,6 +35,7 @@ async function executeTool(toolName, input, userId) {
       const delivery = result.rows[0];
       return {
         success: true,
+        key: 'deliveries',
         message: `${is_pickup ? 'Pickup' : 'Delivery'} created successfully`,
         id: delivery.id,
         status: delivery.status,

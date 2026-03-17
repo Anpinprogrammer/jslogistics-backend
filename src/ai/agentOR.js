@@ -49,7 +49,7 @@ async function runAgentOR(message, history, userId) {
         role: 'tool',
         tool_call_id: toolCall.id,
         name: toolCall.function.name,
-        content: JSON.stringify(result)
+        content: JSON.stringify(result),
       });
     }
 
