@@ -58,6 +58,7 @@ const getDailySummary = async (req, res) => {
   const { page, limit, offset } = req.pagination;
   const { date } = req.query;
   const targetDate = date || new Date().toISOString().split('T')[0];
+  console.log(targetDate)
 
   try {
     // Query principal con todos los cálculos en SQL
@@ -126,6 +127,7 @@ const getDailySummary = async (req, res) => {
 
     const rows = result.rows;
     const total = parseInt(rows[0]?.total_count ?? 0);
+    console.log(total)
 
     const data = rows.map(row => {
       return ({

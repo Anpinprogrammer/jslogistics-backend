@@ -268,6 +268,29 @@ const assignBaseMoney = async (req, res) => {
   }
 };
 
+//PUT /api/daily-settlements/update-courier-base/:id
+const updateCourierBase = async (req, res) => {
+  const { id } = req.params
+  const { amount } = req.body
+
+  try {
+    const result = await pool.query(
+      `
+      UPDATE daily_base_money 
+      SET 
+        amount = $2
+      WHERE courier_id = $1
+      `,
+      [id, amount]
+    )
+
+    console.log(result.rows[0])
+    res.json({ message: '✅ Base Inicial editado correctamente', updated: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al asignar base' });
+  }
+}
+
 // POST /api/daily-settlements/partial-delivery
 const createPartialDelivery = async (req, res) => {
   try {
@@ -534,4 +557,4 @@ const editOpeningBalance = async (req, res) => {
   }
 }
 
-module.exports = { getAll, create, settle, reopen, getBaseMoney, assignBaseMoney, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily, getAllCompany, createCompanyAssignment, resetCompanyAccounts, getTransactions, editOpeningBalance };
+module.exports = { getAll, create, updateCourierBase, settle, reopen, getBaseMoney, assignBaseMoney, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily, getAllCompany, createCompanyAssignment, resetCompanyAccounts, getTransactions, editOpeningBalance };

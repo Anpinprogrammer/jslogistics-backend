@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAll, create, settle, reopen, getBaseMoney, assignBaseMoney, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily, getAllCompany, createCompanyAssignment, resetCompanyAccounts, getTransactions, editOpeningBalance } = require('../controllers/dailySettlementsController');
+const { getAll, create, settle, reopen, getBaseMoney, assignBaseMoney, updateCourierBase, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily, getAllCompany, createCompanyAssignment, resetCompanyAccounts, getTransactions, editOpeningBalance } = require('../controllers/dailySettlementsController');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 
 router.use(authenticate);
@@ -10,6 +10,7 @@ router.post('/', requireAdmin, create);
 router.patch('/:id/settle', requireAdmin, settleDailySettlement);
 router.patch('/reopen', requireAdmin, reopen);
 router.post('/base-money', requireAdmin, assignBaseMoney);
+router.put('/update-courier-base/:id', requireAdmin, updateCourierBase);
 router.get('/get-base-money', requireAdmin, getBaseMoney)
 router.post('/partial-delivery', requireAdmin, createPartialDelivery);
 router.get('/get-partial-deliveries', requireAdmin, getPartialDeliveries)
