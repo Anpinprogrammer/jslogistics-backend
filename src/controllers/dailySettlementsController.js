@@ -1,18 +1,10 @@
 const { pool } = require('../config/database');
+const { enviarCuadre } = require('../services/cuadreSheets');
+const { getTodayBogota, getWeekDatesBogota } = require('../utils/dateUtils');
 
-// Helper: get current week dates (Saturday to Friday)
+// Helper: get current week dates (Saturday to Friday) — delegates to Bogota-aware utility
 function getCurrentWeekDates(dateStr) {
-  const date = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
-  const dayOfWeek = date.getDay();
-  const daysToLastSaturday = dayOfWeek === 6 ? 0 : dayOfWeek + 1;
-  const weekStart = new Date(date);
-  weekStart.setDate(date.getDate() - daysToLastSaturday);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  return {
-    weekStart: weekStart.toISOString().split('T')[0],
-    weekEnd: weekEnd.toISOString().split('T')[0],
-  };
+  return getWeekDatesBogota(dateStr);
 }
 
 // GET /api/daily-settlements
@@ -197,7 +189,7 @@ const settle = async (req, res) => {
 const reopen = async (req, res) => {
   try {
     const { courier_id, date } = req.body;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getTodayBogota();
 
     const existing = await pool.query(
       'SELECT id FROM daily_settlements WHERE courier_id = $1 AND date = $2 AND is_settled = true',
@@ -258,7 +250,7 @@ const assignBaseMoney = async (req, res) => {
       `INSERT INTO daily_base_money (courier_id, assigned_by, amount, date, notes)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [courier_id, req.user.id, amount || 0, date || new Date().toISOString().split('T')[0], notes || null]
+      [courier_id, req.user.id, amount || 0, date || getTodayBogota(), notes || null]
     );
 
     res.status(201).json({ data: result.rows[0], error: null });
@@ -300,7 +292,7 @@ const createPartialDelivery = async (req, res) => {
       `INSERT INTO partial_deliveries (courier_id, received_by, amount, date, notes)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [courier_id, req.user.id, amount, date || new Date().toISOString().split('T')[0], notes || null]
+      [courier_id, req.user.id, amount, date || getTodayBogota(), notes || null]
     );
 
     res.status(201).json({ data: result.rows[0], error: null });
@@ -433,6 +425,18 @@ const createCompanyAssignment = async (req, res) => {
       );
     }
 
+    const cuadres = result.rows;
+
+    for (const c of cuadres) {
+      await enviarCuadre({
+        date,
+        cuenta: c.account,
+        monto: Number(c.amount),
+        egresos: 0 // luego lo puedes calcular
+      });
+    }
+    
+
     res.json(result.rows[0]);
 
   } catch (error) {
@@ -480,7 +484,7 @@ const getTransactions = async (req, res) => {
       return res.status(400).json({ error: 'Cuenta es requerida' })
     }  
 
-    const targetDate = new Date().toISOString().split('T')[0];
+    const targetDate = getTodayBogota();
 
     const { rows } =  await pool.query(
       `SELECT * FROM company_money_movements
@@ -512,7 +516,7 @@ const editOpeningBalance = async (req, res) => {
       return res.status(400).json({ error: 'Cuenta y monto son requeridos' })
     }
 
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getTodayBogota();
 
     // 1️⃣ Verificar si existe un opening_balance para esa cuenta y fecha
     const { rows } = await pool.query(

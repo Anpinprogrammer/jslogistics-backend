@@ -1,9 +1,10 @@
 const { pool } = require('../config/database');
 const { supabase } = require('../config/supabase');
+const { getTodayBogota, getWeekDatesBogota } = require('../utils/dateUtils');
 
 // Helper: reopen daily settlement if closed
 async function reopenDailySettlement(courierId, date) {
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getTodayBogota();
   const existing = await pool.query(
     'SELECT id FROM daily_settlements WHERE courier_id = $1 AND date = $2 AND is_settled = true',
     [courierId, targetDate]
@@ -218,7 +219,7 @@ const create = async (req, res) => {
     }
 
     const effectiveCourierId = courier_id || req.user.id;
-    const effectiveDate = delivery_date || new Date().toISOString().split('T')[0];
+    const effectiveDate = delivery_date || getTodayBogota();
 
     const result = await pool.query(
       `INSERT INTO deliveries 
@@ -390,6 +391,10 @@ const remove = async (req, res) => {
 // DELETE /api/deliveries
 const deleteAll = async (req, res) => {
   try {
+
+    /**
+     * 
+     
     const { data: files, error: listError } = await supabase
       .storage
       .from('delivery-proofs')
@@ -413,6 +418,7 @@ const deleteAll = async (req, res) => {
 
       if (deleteError) console.error(deleteError);
     }
+      */
 
     
     
@@ -445,14 +451,8 @@ const reassign = async (req, res) => {
     }
     const oldValues = oldResult.rows[0];
 
-    // Calculate new week dates (Saturday to Friday)
-    const date = new Date(delivery_date);
-    const dayOfWeek = date.getDay();
-    const daysToLastSaturday = dayOfWeek === 6 ? 0 : dayOfWeek + 1;
-    const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - daysToLastSaturday);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
+    // Calculate new week dates (Saturday to Friday) using Bogota-aware utility
+    const { weekStart, weekEnd } = getWeekDatesBogota(delivery_date);
 
     const result = await pool.query(
       `UPDATE deliveries SET
@@ -469,8 +469,8 @@ const reassign = async (req, res) => {
         courier_id,
         delivery_date,
         notes || null,
-        weekStart.toISOString().split('T')[0],
-        weekEnd.toISOString().split('T')[0],
+        weekStart,
+        weekEnd,
         id
       ]
     );

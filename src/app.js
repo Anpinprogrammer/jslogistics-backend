@@ -20,6 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/clients', require('./routes/clients'));
 app.use('/api/couriers', require('./routes/couriers'));
+app.use('/api/collaborators', require('./routes/collaborators'));
 app.use('/api/deliveries', require('./routes/deliveries'));
 app.use('/api/daily-settlements', require('./routes/dailySettlements'));
 app.use('/api/weekly-settlements', require('./routes/weeklySettlements'));

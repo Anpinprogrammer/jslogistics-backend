@@ -1,5 +1,6 @@
 const { pool } = require('../config/database');
-const paginatedResponse = require('../utils/paginatedResponse')
+const paginatedResponse = require('../utils/paginatedResponse');
+const { getTodayBogota } = require('../utils/dateUtils');
 //const { pool } = require('../config/supabase')
 
 //GET /api/clients (test with pagination)
@@ -57,7 +58,7 @@ const getWithDebt = async (req, res) => {
 const getDailySummary = async (req, res) => {
   const { page, limit, offset } = req.pagination;
   const { date } = req.query;
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getTodayBogota();
   console.log(targetDate)
 
   try {

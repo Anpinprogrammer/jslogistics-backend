@@ -14,6 +14,10 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
+pool.on('connect', (client) => {
+  client.query("SET timezone = 'America/Bogota'");
+});
+
 pool.on('error', (err) => {
   console.error('Error inesperado en el pool de PostgreSQL:', err);
   process.exit(-1);

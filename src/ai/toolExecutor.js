@@ -1,9 +1,10 @@
 const { pool } = require('../config/database');
+const { getTodayBogota } = require('../utils/dateUtils');
 
 // ─── Tool execution ────────────────────────────────────────────────────────────
 
 async function executeTool(toolName, input, userId) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayBogota();
 
   switch (toolName) {
     case 'create_delivery': {

@@ -1,5 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { pool } = require('../config/database');
+const { getTodayBogota } = require('../utils/dateUtils');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -184,7 +185,7 @@ const tools = [
 // ─── Tool execution ────────────────────────────────────────────────────────────
 
 async function executeTool(toolName, input, userId) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getTodayBogota();
 
   switch (toolName) {
     case 'create_delivery': {
@@ -394,7 +395,7 @@ const chat = async (req, res) => {
     const systemPrompt = `You are an AI assistant for "Cargo Guardian", a logistics and delivery management system.
 You help the administrator register information quickly through natural language.
 
-Today's date is: ${new Date().toISOString().split('T')[0]}
+Today's date is: ${getTodayBogota()}
 
 Your capabilities:
 - Create deliveries and pickups

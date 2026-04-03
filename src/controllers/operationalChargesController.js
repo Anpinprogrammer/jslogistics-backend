@@ -1,4 +1,5 @@
 const { pool } = require('../config/database');
+const { getTodayBogota } = require('../utils/dateUtils');
 
 // GET /api/operational-charges
 const getAll = async (req, res) => {
@@ -34,7 +35,7 @@ const create = async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO operational_charges (created_by, description, amount, date) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [req.user.id, description, amount || 0, date || new Date().toISOString().split('T')[0]]
+      [req.user.id, description, amount || 0, date || getTodayBogota()]
     );
 
     res.status(201).json({ data: result.rows[0], error: null });

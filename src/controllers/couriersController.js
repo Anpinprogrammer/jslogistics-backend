@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/database');
+const { getTodayBogota } = require('../utils/dateUtils');
 
 // GET /api/couriers
 const getAll = async (req, res) => {
@@ -133,7 +134,7 @@ const getSummary = async (req, res) => {
   try {
     const { id } = req.params;
     const { date } = req.query;
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    const targetDate = date || getTodayBogota();
 
     const deliveriesResult = await pool.query(
       `SELECT d.*, c.name as client_name
