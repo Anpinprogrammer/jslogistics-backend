@@ -3,9 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(
-    fs.readFileSync(path.join(__dirname, "../config/service-account.json"))
-  ),
+  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
   scopes: ["https://www.googleapis.com/auth/spreadsheets"]
 });
 
