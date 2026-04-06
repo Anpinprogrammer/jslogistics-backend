@@ -276,7 +276,6 @@ const updateCourierBase = async (req, res) => {
       [id, amount]
     )
 
-    console.log(result.rows[0])
     res.json({ message: '✅ Base Inicial editado correctamente', updated: result.rows[0] });
   } catch (error) {
     res.status(500).json({ error: 'Error al asignar base' });

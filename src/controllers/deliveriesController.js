@@ -1,6 +1,7 @@
 const { pool } = require('../config/database');
 const { supabase } = require('../config/supabase');
 const { getTodayBogota, getWeekDatesBogota } = require('../utils/dateUtils');
+const { actualizarDailySummary } = require('./clientDailySettlementsController');
 
 // Helper: reopen daily settlement if closed
 async function reopenDailySettlement(courierId, date) {
@@ -303,6 +304,12 @@ const update = async (req, res) => {
        VALUES ($1, 'updated', $2, $3, $4, $5)`,
       [id, req.user.id, JSON.stringify(oldValues), JSON.stringify(result.rows[0]), reason || null]
     );
+
+    if(status === 'completed') {
+      //Actualizar los dailySummaries
+      const dailySummary = await actualizarDailySummary(result.rows[0])
+      console.log(dailySummary)
+    }
 
     res.json({ data: result.rows[0], error: null });
   } catch (error) {
