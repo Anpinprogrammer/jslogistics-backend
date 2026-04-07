@@ -1,7 +1,7 @@
 const { pool } = require('../config/database');
 const { supabase } = require('../config/supabase');
 const { getTodayBogota, getWeekDatesBogota } = require('../utils/dateUtils');
-const { actualizarDailySummary } = require('./clientDailySettlementsController');
+const { actualizarDailySummary } = require('../services/settlementsService');
 
 // Helper: reopen daily settlement if closed
 async function reopenDailySettlement(courierId, date) {
@@ -26,12 +26,14 @@ const getAll = async (req, res) => {
     const { client_id, courier_id, status, date, week_start, week_end, page = 1, limit = 10, search } = req.query;
 
     let query = `
-      SELECT d.*, c.name as client_name, c.phone as client_phone, 
+      SELECT d.*, c.name as client_name, c.phone as client_phone,
              c.company as client_company, c.identification_number as client_identification,
-             p.full_name as courier_name
+             p.full_name as courier_name,
+             ds.is_settled as is_settled
       FROM deliveries d
       LEFT JOIN clients c ON d.client_id = c.id
       LEFT JOIN profiles p ON d.courier_id = p.user_id
+      LEFT JOIN daily_summaries ds ON d.daily_summary_id = ds.id
       WHERE 1=1
     `;
     let countQuery = `
@@ -39,6 +41,7 @@ const getAll = async (req, res) => {
       FROM deliveries d
       LEFT JOIN clients c ON d.client_id = c.id
       LEFT JOIN profiles p ON d.courier_id = p.user_id
+      LEFT JOIN daily_summaries ds ON d.daily_summary_id = ds.id
       WHERE 1=1
     `;
     const params = [];
@@ -308,7 +311,6 @@ const update = async (req, res) => {
     if(status === 'completed') {
       //Actualizar los dailySummaries
       const dailySummary = await actualizarDailySummary(result.rows[0])
-      console.log(dailySummary)
     }
 
     res.json({ data: result.rows[0], error: null });

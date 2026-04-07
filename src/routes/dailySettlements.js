@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getAll, create, settle, reopen, getBaseMoney, assignBaseMoney, updateCourierBase, createPartialDelivery, settleDailySettlement, getPartialDeliveries, deleteDaily, getAllCompany, createCompanyAssignment, resetCompanyAccounts, getTransactions, editOpeningBalance } = require('../controllers/dailySettlementsController');
+const { getClientSettlements, addClientSettlement } = require('../controllers/clientDailySettlementsController');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 
 router.use(authenticate);
@@ -25,6 +26,7 @@ router.put('/company/movements/opening-balance', requireAdmin, editOpeningBalanc
 router.get('/company/transactions/:account', requireAdmin, getTransactions)
 
 //Clients
+router.post('/client/:id', requireAdmin, addClientSettlement)
 
 
 module.exports = router;
