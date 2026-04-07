@@ -332,6 +332,7 @@ const deleteDaily = async (req, res) => {
     await pool.query('DELETE FROM daily_settlements')
     await pool.query('DELETE FROM daily_base_money')
     await pool.query('DELETE FROM partial_deliveries')
+    await pool.query('DELETE FROM daily_summaries')
 
     res.json({ msg: 'Eliminado correctamente' })
 
