@@ -1,10 +1,14 @@
 const express = require('express');
+const compression = require('compression');
 const corsMiddleware = require('./middleware/cors');
 const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Compress all responses — gzip for JSON API payloads cuts transfer size ~70%
+app.use(compression());
 
 // Permitir sólo tu frontend
 app.use(cors({
