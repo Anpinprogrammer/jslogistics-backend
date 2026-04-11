@@ -8,10 +8,11 @@ const actualizarDailySummary = async (delivery) => {
 
     const fecha = delivery.delivery_date; // 🔥 usamos esto
 
-    // 1. Buscar o crear summary
+    // 1. Buscar o crear summary (solo busca en los no liquidados para que
+    //    una nueva entrega después de un cuadre abra un período nuevo)
     let summary = await client.query(
       `SELECT id FROM daily_summaries
-       WHERE client_id = $1 AND date = $2`,
+       WHERE client_id = $1 AND date = $2 AND is_settled = FALSE`,
       [delivery.client_id, fecha]
     );
 
@@ -44,13 +45,15 @@ const actualizarDailySummary = async (delivery) => {
        SET 
          total_collected = sub.total_collected,
          total_services = sub.total_services,
+         total_loans = sub.total_loans,
          net = sub.net
        FROM (
          SELECT 
            daily_summary_id,
            COALESCE(SUM(received_amount), 0) AS total_collected,
            COALESCE(SUM(service_value), 0) AS total_services,
-           COALESCE(SUM(received_amount), 0) - COALESCE(SUM(service_value), 0) AS net
+           COALESCE(SUM(loan), 0) AS total_loans,
+           COALESCE(SUM(received_amount), 0) - COALESCE(SUM(service_value), 0) - COALESCE(SUM(loan), 0) AS net
          FROM deliveries
          WHERE daily_summary_id = $1
            AND status = 'completed'
@@ -70,22 +73,32 @@ const actualizarDailySummary = async (delivery) => {
   }
 };
 
-const settleClient = async ({ clientId, paymentMethod, type, amount, notes, userId }) => {
+const settleClient = async ({ clientId, paymentMethod, type, amount, notes, userId, summaryIds }) => {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    // 1. Obtener deuda pendiente
-    const pending = await client.query(
-      `
-      SELECT id, net
-      FROM daily_summaries
-      WHERE client_id = $1
-        AND is_settled = FALSE
-      `,
-      [clientId]
-    );
+    // 1. Obtener deuda pendiente (por IDs específicos o todos los pendientes)
+    let pending;
+    if (summaryIds && summaryIds.length > 0) {
+      pending = await client.query(
+        `SELECT id, net
+         FROM daily_summaries
+         WHERE client_id = $1
+           AND is_settled = FALSE
+           AND id = ANY($2)`,
+        [clientId, summaryIds]
+      );
+    } else {
+      pending = await client.query(
+        `SELECT id, net
+         FROM daily_summaries
+         WHERE client_id = $1
+           AND is_settled = FALSE`,
+        [clientId]
+      );
+    }
 
     if (pending.rows.length === 0) {
       throw new Error("No hay deuda pendiente");
@@ -108,19 +121,17 @@ const settleClient = async ({ clientId, paymentMethod, type, amount, notes, user
     );
 
     const settlementId = settlement.rows[0].id;
+    const settledIds = pending.rows.map(r => r.id);
 
-    // 4. Marcar daily summaries como liquidados
+    // 4. Marcar los summaries seleccionados como liquidados
     await client.query(
-      `
-      UPDATE daily_summaries
-      SET 
-        is_settled = TRUE,
-        settled_at = now(),
-        settlement_id = $1
-      WHERE client_id = $2
-        AND is_settled = FALSE
-      `,
-      [settlementId, clientId]
+      `UPDATE daily_summaries
+       SET
+         is_settled = TRUE,
+         settled_at = now(),
+         settlement_id = $1
+       WHERE id = ANY($2)`,
+      [settlementId, settledIds]
     );
 
     // 5. Resetear balance (opcional)
