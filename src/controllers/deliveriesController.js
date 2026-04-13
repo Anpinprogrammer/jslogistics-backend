@@ -23,7 +23,7 @@ async function reopenDailySettlement(courierId, date) {
 // GET /api/deliveries
 const getAll = async (req, res) => {
   try {
-    const { client_id, courier_id, status, date, week_start, week_end, page = 1, limit = 10, search } = req.query;
+    const { client_id, courier_id, status, date, week_start, week_end, page = 1, limit = 5000, search } = req.query;
 
     let query = `
       SELECT d.*, c.name as client_name, c.phone as client_phone,
@@ -120,7 +120,7 @@ const getAll = async (req, res) => {
 
     // Pagination
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.max(1, Math.min(100, parseInt(limit)));
+    const limitNum = Math.max(1, Math.min(10000, parseInt(limit)));
     const offset = (pageNum - 1) * limitNum;
 
     paramCount++;
