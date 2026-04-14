@@ -21,10 +21,75 @@ const getAll = async (req, res) => {
       `,
       [limit, offset]
     )
+
     res.json(paginatedResponse(clients.rows, parseInt(count), { page, limit }));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+}
+
+// GET /api/clients/in-favor
+const inFavor = async (req, res) => {
+  const { limit, offset, page } = req.pagination;
+
+  try {
+    //Count of all the clients with a balance in favor 
+    const { rows: [ { count } ] } = await pool.query(
+      `
+      SELECT COUNT(*) FROM clients
+      WHERE balance > 0
+      `
+    )
+
+    const clientsInFavor = await pool.query(
+      `SELECT * FROM clients
+       WHERE balance > 0
+       ORDER BY name ASC 
+       LIMIT $1 
+       OFFSET $2
+      `,
+      [limit, offset]
+    )
+
+    res.json(paginatedResponse(clientsInFavor.rows, parseInt(count), { page, limit }));
+
+  } catch (error) {
+    console.log(error)
+  }
+
+
+}
+
+// GET /api/clients/with-debt
+const withDebt = async (req, res) => {
+  const { limit, offset, page } = req.pagination;
+
+  try {
+    //Count of all the clients with a balance in favor 
+    const { rows: [ { count } ] } = await pool.query(
+      `
+      SELECT COUNT(*) FROM clients
+      WHERE balance < 0
+      `
+    )
+
+    const clientsWithDebt = await pool.query(
+      `SELECT * FROM clients
+       WHERE balance < 0
+       ORDER BY name ASC 
+       LIMIT $1 
+       OFFSET $2
+      `,
+      [limit, offset]
+    )
+
+    res.json(paginatedResponse(clientsWithDebt.rows, parseInt(count), { page, limit }));
+
+  } catch (error) {
+    console.log(error)
+  }
+
+
 }
 
 // GET /api/clients/:id
@@ -379,4 +444,4 @@ async function queryWithOrder(table, orderBy) {
   return { data: result.rows };
 }
 
-module.exports = { getAll, getById, getWithDebt, getDailySummary, create, update, updateAll, remove, getStatement };
+module.exports = { getAll, inFavor, withDebt, getById, getWithDebt, getDailySummary, create, update, updateAll, remove, getStatement };

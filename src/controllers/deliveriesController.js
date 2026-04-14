@@ -308,9 +308,10 @@ const update = async (req, res) => {
       [id, req.user.id, JSON.stringify(oldValues), JSON.stringify(result.rows[0]), reason || null]
     );
 
-    if(status === 'completed') {
-      //Actualizar los dailySummaries
-      const dailySummary = await actualizarDailySummary(result.rows[0])
+    // Recalculate daily summaries whenever a delivery transitions to/from 'completed'
+    // so corrections to already-completed deliveries are reflected immediately
+    if (status === 'completed' || oldValues.status === 'completed') {
+      await actualizarDailySummary(result.rows[0]);
     }
 
     res.json({ data: result.rows[0], error: null });
