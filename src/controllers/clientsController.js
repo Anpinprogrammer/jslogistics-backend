@@ -6,21 +6,27 @@ const { getTodayBogota } = require('../utils/dateUtils');
 //GET /api/clients (test with pagination)
 const getAll = async (req, res) => {
   const { limit, offset, page } = req.pagination;
-  
-  try {
-    //Postgres
-    const { rows: [ { count }]} = await pool.query(
-      `SELECT COUNT(*) FROM clients`
-    )
+  const search = req.query.search ? `%${req.query.search}%` : null;
 
+  try {
+    const whereClause = search
+      ? `WHERE name ILIKE $1 OR company ILIKE $1 OR phone ILIKE $1 OR address ILIKE $1`
+      : '';
+
+    const { rows: [{ count }] } = await pool.query(
+      `SELECT COUNT(*) FROM clients ${whereClause}`,
+      search ? [search] : []
+    );
+
+    const params = search ? [search, limit, offset] : [limit, offset];
     const clients = await pool.query(
       `SELECT * FROM clients
-       ORDER BY name ASC 
-       LIMIT $1 
-       OFFSET $2
-      `,
-      [limit, offset]
-    )
+       ${whereClause}
+       ORDER BY name ASC
+       LIMIT $${search ? 2 : 1}
+       OFFSET $${search ? 3 : 2}`,
+      params
+    );
 
     res.json(paginatedResponse(clients.rows, parseInt(count), { page, limit }));
   } catch (err) {
@@ -31,65 +37,63 @@ const getAll = async (req, res) => {
 // GET /api/clients/in-favor
 const inFavor = async (req, res) => {
   const { limit, offset, page } = req.pagination;
+  const search = req.query.search ? `%${req.query.search}%` : null;
 
   try {
-    //Count of all the clients with a balance in favor 
-    const { rows: [ { count } ] } = await pool.query(
-      `
-      SELECT COUNT(*) FROM clients
-      WHERE balance > 0
-      `
-    )
+    const extraFilter = search
+      ? `AND (name ILIKE $1 OR company ILIKE $1 OR phone ILIKE $1 OR address ILIKE $1)`
+      : '';
 
+    const { rows: [{ count }] } = await pool.query(
+      `SELECT COUNT(*) FROM clients WHERE balance > 0 ${extraFilter}`,
+      search ? [search] : []
+    );
+
+    const params = search ? [search, limit, offset] : [limit, offset];
     const clientsInFavor = await pool.query(
       `SELECT * FROM clients
-       WHERE balance > 0
-       ORDER BY name ASC 
-       LIMIT $1 
-       OFFSET $2
-      `,
-      [limit, offset]
-    )
+       WHERE balance > 0 ${extraFilter}
+       ORDER BY name ASC
+       LIMIT $${search ? 2 : 1}
+       OFFSET $${search ? 3 : 2}`,
+      params
+    );
 
     res.json(paginatedResponse(clientsInFavor.rows, parseInt(count), { page, limit }));
-
   } catch (error) {
     console.log(error)
   }
-
-
 }
 
 // GET /api/clients/with-debt
 const withDebt = async (req, res) => {
   const { limit, offset, page } = req.pagination;
+  const search = req.query.search ? `%${req.query.search}%` : null;
 
   try {
-    //Count of all the clients with a balance in favor 
-    const { rows: [ { count } ] } = await pool.query(
-      `
-      SELECT COUNT(*) FROM clients
-      WHERE balance < 0
-      `
-    )
+    const extraFilter = search
+      ? `AND (name ILIKE $1 OR company ILIKE $1 OR phone ILIKE $1 OR address ILIKE $1)`
+      : '';
 
+    const { rows: [{ count }] } = await pool.query(
+      `SELECT COUNT(*) FROM clients WHERE balance < 0 ${extraFilter}`,
+      search ? [search] : []
+    );
+
+    const params = search ? [search, limit, offset] : [limit, offset];
     const clientsWithDebt = await pool.query(
       `SELECT * FROM clients
-       WHERE balance < 0
-       ORDER BY name ASC 
-       LIMIT $1 
-       OFFSET $2
-      `,
-      [limit, offset]
-    )
+       WHERE balance < 0 ${extraFilter}
+       ORDER BY name ASC
+       LIMIT $${search ? 2 : 1}
+       OFFSET $${search ? 3 : 2}`,
+      params
+    );
 
     res.json(paginatedResponse(clientsWithDebt.rows, parseInt(count), { page, limit }));
-
   } catch (error) {
     console.log(error)
   }
-
-
 }
 
 // GET /api/clients/:id
